@@ -17,19 +17,19 @@ import lombok.ToString;
 @ToString
 public class BlackAndWhiteConversionRequested extends PojaEvent {
 
-    private UUID id;
-    private String s3KeyOriginal;
-    private String extension;
-    private String email;
-    private String fileName;
+  private UUID id;
+  private String s3KeyOriginal;
+  private String extension;
+  private String email;
+  private String fileName;
 
-    @Override
-    public Duration maxConsumerDuration() {
-        return Duration.ofSeconds(60);
-    }
+  @Override
+  public Duration maxConsumerDuration() {
+    return Duration.ofSeconds(60);
+  }
 
-    @Override
-    public Duration maxConsumerBackoffBetweenRetries() {
-        return Duration.ofSeconds(30);
-    }
+  @Override
+  public Duration maxConsumerBackoffBetweenRetries() {
+    return Duration.ofSeconds(30);
+  }
 }
