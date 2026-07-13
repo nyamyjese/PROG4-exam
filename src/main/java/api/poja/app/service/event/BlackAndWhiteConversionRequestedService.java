@@ -20,55 +20,57 @@ import org.springframework.stereotype.Service;
 @Service
 @AllArgsConstructor
 public class BlackAndWhiteConversionRequestedService
-        implements Consumer<BlackAndWhiteConversionRequested> {
+    implements Consumer<BlackAndWhiteConversionRequested> {
 
-    private final BucketComponent bucketComponent;
-    private final Mailer mailer;
+  private final BucketComponent bucketComponent;
+  private final Mailer mailer;
 
-    @SneakyThrows
-    @Override
-    public void accept(BlackAndWhiteConversionRequested event) {
-        File originalFile = bucketComponent.download(event.getS3KeyOriginal());
+  @SneakyThrows
+  @Override
+  public void accept(BlackAndWhiteConversionRequested event) {
+    File originalFile = bucketComponent.download(event.getS3KeyOriginal());
 
-        File bwFile = convertToBlackAndWhite(originalFile, event.getExtension());
+    File bwFile = convertToBlackAndWhite(originalFile, event.getExtension());
 
-        String bwKey = "black-and-white/" + event.getId() + "." + event.getExtension();
-        bucketComponent.upload(bwFile, bwKey);
+    String bwKey = "black-and-white/" + event.getId() + "." + event.getExtension();
+    bucketComponent.upload(bwFile, bwKey);
 
-        String presignedUrl = bucketComponent
-                .presign(bwKey, java.time.Duration.ofDays(7))
-                .toString();
+    String presignedUrl = bucketComponent.presign(bwKey, java.time.Duration.ofDays(7)).toString();
 
-        var recipient = new InternetAddress(event.getEmail());
-        var email = new Email(
-                recipient,
-                List.of(),
-                List.of(),
-                "Votre image en noir et blanc est prête",
-                "Bonjour,\n\nVotre image \"" + event.getFileName()
-                        + "\" a été convertie en noir et blanc.\n\nLien de téléchargement (valable 7 jours) :\n"
-                        + presignedUrl + "\n\nCordialement.",
-                List.of()
-        );
-        mailer.accept(email);
+    var recipient = new InternetAddress(event.getEmail());
+    var email =
+        new Email(
+            recipient,
+            List.of(),
+            List.of(),
+            "Votre image en noir et blanc est prête",
+            "Bonjour,\n\nVotre image \""
+                + event.getFileName()
+                + "\" a été convertie en noir et blanc.\n\n"
+                + "Lien de téléchargement (valable 7 jours) :\n"
+                + presignedUrl
+                + "\n\nCordialement.",
+            List.of());
+    mailer.accept(email);
+  }
+
+  private File convertToBlackAndWhite(File originalFile, String extension) throws Exception {
+    BufferedImage originalImage = ImageIO.read(originalFile);
+    BufferedImage grayImage =
+        new BufferedImage(
+            originalImage.getWidth(), originalImage.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
+    Graphics g = grayImage.getGraphics();
+    g.drawImage(originalImage, 0, 0, null);
+    g.dispose();
+
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    String format = extension.equalsIgnoreCase("png") ? "png" : "jpg";
+    ImageIO.write(grayImage, format, baos);
+
+    File tempFile = File.createTempFile("bw-", "." + extension);
+    try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+      fos.write(baos.toByteArray());
     }
-
-    private File convertToBlackAndWhite(File originalFile, String extension) throws Exception {
-        BufferedImage originalImage = ImageIO.read(originalFile);
-        BufferedImage grayImage = new BufferedImage(
-                originalImage.getWidth(), originalImage.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
-        Graphics g = grayImage.getGraphics();
-        g.drawImage(originalImage, 0, 0, null);
-        g.dispose();
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        String format = extension.equalsIgnoreCase("png") ? "png" : "jpg";
-        ImageIO.write(grayImage, format, baos);
-
-        File tempFile = File.createTempFile("bw-", "." + extension);
-        try (FileOutputStream fos = new FileOutputStream(tempFile)) {
-            fos.write(baos.toByteArray());
-        }
-        return tempFile;
-    }
+    return tempFile;
+  }
 }
